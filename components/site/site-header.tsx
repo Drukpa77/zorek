@@ -66,7 +66,7 @@ export function SiteHeader({ items }: { items: NavEntry[] }) {
   }, [open]);
 
   useEffect(() => {
-    const media = window.matchMedia("(min-width: 900px)");
+    const media = window.matchMedia("(min-width: 1120px)");
     const onChange = () => {
       if (media.matches) setOpen(false);
     };
@@ -84,6 +84,7 @@ export function SiteHeader({ items }: { items: NavEntry[] }) {
       </a>
       <header data-nav="" className="site-header">
         <Logo />
+        <div className="header-end">
         <nav className="nav-desktop" aria-label="Main">
           {items.map((item, index) => {
             const current = isCurrent(item.key, pathname, hash);
@@ -104,6 +105,9 @@ export function SiteHeader({ items }: { items: NavEntry[] }) {
             Start a project ↗
           </Link>
         </nav>
+        <Link href="/admin" className="nav-admin type-mono">
+          Admin
+        </Link>
         <button
           ref={indexRef}
           type="button"
@@ -121,6 +125,7 @@ export function SiteHeader({ items }: { items: NavEntry[] }) {
             <span className="block size-[5px] bg-acc" />
           </span>
         </button>
+        </div>
       </header>
       {open ? (
         <div
@@ -160,9 +165,14 @@ export function SiteHeader({ items }: { items: NavEntry[] }) {
               </Link>
             ))}
           </nav>
-          <Link href="/contact" className="menu-cta type-mono-12" onClick={() => setOpen(false)}>
-            Start a project <span>↗</span>
-          </Link>
+          <div className="menu-actions">
+            <Link href="/admin" className="menu-admin type-mono-12" onClick={() => setOpen(false)}>
+              Admin
+            </Link>
+            <Link href="/contact" className="menu-cta type-mono-12" onClick={() => setOpen(false)}>
+              Start a project <span>↗</span>
+            </Link>
+          </div>
         </div>
       ) : null}
     </>

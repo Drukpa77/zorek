@@ -19,6 +19,7 @@ const columns = [
       { label: "Industries", href: "/industries" },
       { label: "Security & Trust", href: "/about#trust" },
       { label: "Start a project", href: "/contact" },
+      { label: "Admin", href: "/admin" },
     ],
   },
   {

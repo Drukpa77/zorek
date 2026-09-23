@@ -265,6 +265,27 @@ html.cc * {
   -webkit-backdrop-filter: blur(14px);
 }
 
+.header-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nav-admin {
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.nav-admin:hover {
+  color: var(--on-dark);
+  background: var(--ink);
+}
+
 .nav-desktop {
   display: none;
   align-items: center;
@@ -375,13 +396,28 @@ html.cc * {
     transform 0.8s var(--ease-out);
 }
 
+.menu-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.menu-admin,
 .menu-cta {
   display: flex;
-  height: 56px;
+  min-height: 56px;
   align-items: center;
   justify-content: space-between;
-  margin-top: 20px;
   padding: 0 18px;
+}
+
+.menu-admin {
+  border: 1px solid rgba(238, 237, 232, 0.45);
+  color: var(--on-dark);
+}
+
+.menu-cta {
   color: #fff;
   background: var(--acc);
 }
@@ -618,6 +654,10 @@ html.cc * {
     width: 100%;
     justify-content: center;
   }
+
+  .menu-actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (min-width: 640px) and (max-width: 899px) {
@@ -650,7 +690,7 @@ html.cc * {
   }
 }
 
-@media (min-width: 1040px) {
+@media (min-width: 1120px) {
   .site-header {
     gap: 24px;
   }
