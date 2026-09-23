@@ -1,0 +1,21 @@
+name: company-site
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: company
+      POSTGRES_PASSWORD: company
+      POSTGRES_DB: company
+    ports:
+      - "5432:5432"
+    volumes:
+      - company_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U company -d company"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  company_pg:

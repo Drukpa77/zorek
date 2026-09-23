@@ -1,0 +1,320 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  AUTHOR
+}
+
+enum Status {
+  DRAFT
+  REVIEW
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+  TRASHED
+}
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL
+  WON
+  CLOSED
+}
+
+enum RedirectType {
+  PERMANENT_301
+  TEMPORARY_302
+}
+
+model User {
+  id            String               @id @default(cuid())
+  email         String               @unique
+  name          String
+  passwordHash  String
+  role          Role                 @default(ADMIN)
+  totpSecret    String?
+  sessions      Session[]
+  passwordResets PasswordResetToken[]
+  insights      Insight[]
+  enquiryNotes  EnquiryNote[]
+  activity      ActivityLog[]
+  media         Media[]
+  versions      ContentVersion[]
+  createdAt     DateTime             @default(now())
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+}
+
+model Seo {
+  id             String     @id @default(cuid())
+  title          String?
+  description    String?
+  canonicalUrl   String?
+  ogTitle        String?
+  ogDescription  String?
+  ogImageId      String?
+  noindex        Boolean    @default(false)
+  structuredData Json?
+  caseStudy      CaseStudy?
+  service        Service?
+  industry       Industry?
+  insight        Insight?
+  page           Page?
+}
+
+model Media {
+  id           String    @id @default(cuid())
+  key          String    @unique
+  filename     String
+  mimeType     String
+  sizeBytes    Int
+  width        Int?
+  height       Int?
+  alt          String    @default("")
+  caption      String?
+  focalX       Float     @default(0.5)
+  focalY       Float     @default(0.5)
+  variants     Json?
+  uploadedById String?
+  uploadedBy   User?     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+}
+
+model CaseStudy {
+  id               String           @id @default(cuid())
+  slug             String           @unique
+  name             String
+  clientName       String
+  shortDescription String
+  year             Int?
+  industryId       String?
+  industry         Industry?        @relation(fields: [industryId], references: [id])
+  projectType      String?
+  status           Status           @default(DRAFT)
+  featured         Boolean          @default(false)
+  displayOrder     Int              @default(0)
+  services         String[]
+  technologies     String[]
+  heroImageId      String?
+  heroVideoId      String?
+  thumbnailId      String?
+  blocks           CaseStudyBlock[]
+  seoId            String?          @unique
+  seo              Seo?             @relation(fields: [seoId], references: [id])
+  relatedServices  Service[]        @relation("ServiceCaseStudies")
+  publishAt        DateTime?
+  publishedAt      DateTime?
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+}
+
+model CaseStudyBlock {
+  id          String    @id @default(cuid())
+  caseStudyId String
+  caseStudy   CaseStudy @relation(fields: [caseStudyId], references: [id], onDelete: Cascade)
+  type        String
+  order       Int
+  hidden      Boolean   @default(false)
+  data        Json
+
+  @@index([caseStudyId, order])
+}
+
+model Service {
+  id                  String      @id @default(cuid())
+  slug                String      @unique
+  name                String
+  shortDescription    String
+  heroHeading         String
+  heroCopy            String
+  problem             Json
+  audience            Json
+  approach            Json
+  deliverables        String[]
+  benefits            Json
+  process             Json
+  capabilities        String[]
+  technologies        String[]
+  faqs                Json
+  ctaLabel            String?
+  featuredMediaId     String?
+  relatedCaseStudies  CaseStudy[] @relation("ServiceCaseStudies")
+  status              Status      @default(DRAFT)
+  displayOrder        Int         @default(0)
+  seoId               String?     @unique
+  seo                 Seo?        @relation(fields: [seoId], references: [id])
+}
+
+model Industry {
+  id                  String      @id @default(cuid())
+  slug                String      @unique
+  name                String
+  heroContent         Json
+  challenges          String[]
+  solutions           Json
+  relevantServiceIds  String[]
+  caseStudies         CaseStudy[]
+  status              Status      @default(DRAFT)
+  displayOrder        Int         @default(0)
+  seoId               String?     @unique
+  seo                 Seo?        @relation(fields: [seoId], references: [id])
+}
+
+model Insight {
+  id               String    @id @default(cuid())
+  slug             String    @unique
+  title            String
+  excerpt          String?
+  authorId         String
+  author           User      @relation(fields: [authorId], references: [id])
+  categoryId       String?
+  category         Category? @relation(fields: [categoryId], references: [id])
+  tags             Tag[]
+  body             Json
+  featuredImageId  String?
+  status           Status    @default(DRAFT)
+  featured         Boolean   @default(false)
+  publishAt        DateTime?
+  publishedAt      DateTime?
+  seoId            String?   @unique
+  seo              Seo?      @relation(fields: [seoId], references: [id])
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  slug     String    @unique
+  name     String
+  insights Insight[]
+}
+
+model Tag {
+  id       String    @id @default(cuid())
+  slug     String    @unique
+  name     String
+  insights Insight[]
+}
+
+model Page {
+  id        String        @id @default(cuid())
+  key       String        @unique
+  sections  PageSection[]
+  status    Status        @default(PUBLISHED)
+  seoId     String?       @unique
+  seo       Seo?          @relation(fields: [seoId], references: [id])
+  updatedAt DateTime      @updatedAt
+}
+
+model PageSection {
+  id      String  @id @default(cuid())
+  pageId  String
+  page    Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  key     String
+  enabled Boolean @default(true)
+  order   Int
+  data    Json
+}
+
+model NavigationItem {
+  id          String  @id @default(cuid())
+  menu        String  @default("main")
+  label       String
+  href        String
+  external    Boolean @default(false)
+  visible     Boolean @default(true)
+  systemRoute Boolean @default(false)
+  order       Int
+}
+
+model Redirect {
+  id        String       @id @default(cuid())
+  fromPath  String       @unique
+  toPath    String
+  type      RedirectType @default(PERMANENT_301)
+  createdAt DateTime     @default(now())
+}
+
+model Enquiry {
+  id             String         @id @default(cuid())
+  name           String
+  company        String?
+  email          String
+  phone          String?
+  projectTypes   String[]
+  existingSystem String?
+  existingUrl    String?
+  description    String?
+  budget         String?
+  timeline       String?
+  status         EnquiryStatus  @default(NEW)
+  notes          EnquiryNote[]
+  createdAt      DateTime       @default(now())
+  archivedAt     DateTime?
+}
+
+model EnquiryNote {
+  id        String   @id @default(cuid())
+  enquiryId String
+  enquiry   Enquiry  @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model SiteSettings {
+  id   Int  @id @default(1)
+  data Json
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  summary    String
+  createdAt  DateTime @default(now())
+}
+
+model ContentVersion {
+  id          String   @id @default(cuid())
+  entityType  String
+  entityId    String
+  snapshot    Json
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+}
