@@ -72,6 +72,15 @@ model PasswordResetToken {
   usedAt    DateTime?
 }
 
+// Shared across server instances. Keyed by the submitted email so unknown
+// addresses lock out the same way as real accounts.
+model LoginAttempt {
+  email       String    @id
+  count       Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+}
+
 model Seo {
   id             String     @id @default(cuid())
   title          String?

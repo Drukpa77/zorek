@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import type { Role } from "@prisma/client";
 
@@ -11,8 +12,7 @@ const rank: Record<Role, number> = {
 export async function requireRole(minimum: Role = "AUTHOR") {
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user || !role || rank[role] < rank[minimum]) {
-    throw new Error("Unauthorized");
-  }
+  if (!session?.user || !role) redirect("/admin/login");
+  if (rank[role] < rank[minimum]) redirect("/admin");
   return session.user;
 }

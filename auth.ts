@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { authConfig } from "@/auth.config";
-import { clearFailures, isLocked, recordFailure } from "@/lib/lockout";
+import { clearFailures, lockMinutes, recordFailure } from "@/lib/lockout";
 import { verifyPassword } from "@/lib/passwords";
 import { prisma } from "@/lib/prisma";
 
@@ -24,21 +24,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) return null;
 
         const email = parsed.data.email.toLowerCase();
-        if (isLocked(email)) return null;
+        if (await lockMinutes(email)) return null;
 
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) {
-          recordFailure(email);
+          await recordFailure(email);
           return null;
         }
 
         const valid = await verifyPassword(user.passwordHash, parsed.data.password);
         if (!valid) {
-          recordFailure(email);
+          await recordFailure(email);
           return null;
         }
 
-        clearFailures(email);
+        await clearFailures(email);
         await prisma.session.create({
           data: {
             userId: user.id,

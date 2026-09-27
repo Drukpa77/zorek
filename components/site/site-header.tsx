@@ -112,12 +112,12 @@ export function SiteHeader({ items }: { items: NavEntry[] }) {
           ref={indexRef}
           type="button"
           className="nav-index"
-          aria-label="Open menu"
+          aria-haspopup="dialog"
           aria-expanded={open}
-          aria-controls={titleId}
+          aria-controls={open ? titleId : undefined}
           onClick={() => setOpen(true)}
         >
-          Index
+          Index<span className="sr-only"> menu</span>
           <span aria-hidden="true" className="grid grid-cols-[5px_5px] gap-[2px]">
             <span className="block size-[5px] bg-ink" />
             <span className="block size-[5px] bg-ink" />
@@ -134,6 +134,7 @@ export function SiteHeader({ items }: { items: NavEntry[] }) {
           role="dialog"
           aria-modal="true"
           aria-label="Menu"
+          data-dark=""
           className="index-menu"
         >
           <div className="type-mono flex h-16 items-center justify-between">
@@ -141,7 +142,8 @@ export function SiteHeader({ items }: { items: NavEntry[] }) {
             <button
               ref={closeRef}
               type="button"
-              className="h-11"
+              className="h-11 px-1"
+              aria-label="Close menu"
               onClick={() => {
                 setOpen(false);
                 indexRef.current?.focus();

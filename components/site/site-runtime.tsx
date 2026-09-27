@@ -16,6 +16,25 @@ const BOOT_ROWS = [
   ["100 · Ready", "●"],
 ] as const;
 
+// Decides cursor colour from what is actually painted under the pointer, so
+// every dark surface (plates, hover fills, selected chips, buttons) works
+// without being tagged. Walks up to the first mostly-opaque background.
+function isDarkBehind(element: Element) {
+  for (let node: Element | null = element; node; node = node.parentElement) {
+    const match = getComputedStyle(node).backgroundColor.match(/[\d.]+/g);
+    if (!match) continue;
+    const [r, g, b, a = 1] = match.map(Number);
+    if (a < 0.5) continue;
+    const channel = (value: number) => {
+      const c = value / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const luminance = 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+    return luminance < 0.25;
+  }
+  return false;
+}
+
 export function SiteRuntime() {
   const pathname = usePathname();
   const router = useRouter();
@@ -37,9 +56,17 @@ export function SiteRuntime() {
   useEffect(() => {
     const cursor = cursorRef.current;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const fine = window.matchMedia("(pointer: fine)").matches && !reduced;
+    const finePointer = window.matchMedia("(pointer: fine)");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const root = document.documentElement;
     const pointer = { x: -100, y: -100, rx: -100, ry: -100 };
+    // The custom cursor follows the live input, not the input at page load:
+    // switching to touch (a phone, a tablet, DevTools device mode) restores the
+    // native cursor straight away.
+    let fine = false;
+    let usingMouse = true;
+    let inside = true;
+    let dirty = true;
     let frame = 0;
     let bootFrame = 0;
     let hideTimer = 0;
@@ -69,14 +96,59 @@ export function SiteRuntime() {
       }
     }
 
-    if (fine && cursor) {
-      root.classList.add("cc");
-      cursor.style.display = "block";
-    }
+    const syncCursor = () => {
+      fine = finePointer.matches && !reducedMotion.matches && usingMouse;
+      root.classList.toggle("cc", fine);
+      if (cursor) cursor.style.display = fine && inside ? "block" : "none";
+      if (!fine) {
+        document.querySelectorAll<HTMLElement>("[data-mag]").forEach((element) => {
+          element.style.transform = "";
+        });
+      }
+      dirty = true;
+    };
+    syncCursor();
+    finePointer.addEventListener("change", syncCursor);
+    reducedMotion.addEventListener("change", syncCursor);
+
+    // Styles the cursor for whatever is under it. Runs from the frame loop
+    // whenever something may have changed underneath a still pointer: a scroll,
+    // a click that opens the menu, a route change.
+    const paintCursor = () => {
+      if (!fine || !ringRef.current || !labelRef.current || !dotRef.current) return;
+      const target = document.elementFromPoint(pointer.x, pointer.y);
+      const marked = target?.closest("[data-cursor]");
+      const interactive = target?.closest("a, button, input, textarea, label, select");
+      const dark = target ? isDarkBehind(target) : false;
+      const label = marked?.getAttribute("data-cursor") ?? "";
+      let size = 30;
+      let background = "transparent";
+      let border = dark ? "rgba(238,237,232,.6)" : "rgba(17,17,16,.5)";
+      if (label) {
+        size = 80;
+        background = "var(--acc)";
+        border = "transparent";
+      } else if (interactive) {
+        size = 48;
+      }
+      const ring = ringRef.current;
+      ring.style.width = `${size}px`;
+      ring.style.height = `${size}px`;
+      ring.style.margin = `${-size / 2}px 0 0 ${-size / 2}px`;
+      ring.style.backgroundColor = background;
+      ring.style.borderColor = border;
+      labelRef.current.textContent = label;
+      labelRef.current.style.opacity = label ? "1" : "0";
+      dotRef.current.style.background = dark ? "#EEEDE8" : "#111110";
+    };
 
     const tick = () => {
       frame = requestAnimationFrame(tick);
       if (!fine || !ringRef.current || !dotRef.current) return;
+      if (dirty) {
+        dirty = false;
+        paintCursor();
+      }
       pointer.rx += (pointer.x - pointer.rx) * 0.2;
       pointer.ry += (pointer.y - pointer.ry) * 0.2;
       if (ringRef.current.parentElement) {
@@ -87,6 +159,11 @@ export function SiteRuntime() {
     tick();
 
     const onMove = (event: PointerEvent) => {
+      const mouse = event.pointerType === "mouse";
+      if (mouse !== usingMouse) {
+        usingMouse = mouse;
+        syncCursor();
+      }
       pointer.x = event.clientX;
       pointer.y = event.clientY;
       if (!fine) return;
@@ -100,38 +177,33 @@ export function SiteRuntime() {
       });
     };
 
-    const onOver = (event: Event) => {
-      if (!fine || !ringRef.current || !labelRef.current || !dotRef.current) return;
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      const marked = target.closest("[data-cursor]");
-      const interactive = target.closest("a, button, input, textarea, label");
-      const dark = target.closest("[data-dark]");
-      const label = marked?.getAttribute("data-cursor") ?? "";
-      let size = 30;
-      let background = "transparent";
-      let border = dark ? "rgba(238,237,232,.6)" : "rgba(17,17,16,.5)";
-      let text = "";
-      if (label) {
-        size = 80;
-        background = "var(--acc)";
-        border = "transparent";
-        text = label;
-      } else if (interactive) {
-        size = 48;
-      }
-      const ring = ringRef.current;
-      ring.style.width = `${size}px`;
-      ring.style.height = `${size}px`;
-      ring.style.margin = `${-size / 2}px 0 0 ${-size / 2}px`;
-      ring.style.backgroundColor = background;
-      ring.style.borderColor = border;
-      labelRef.current.textContent = text;
-      labelRef.current.style.opacity = text ? "1" : "0";
-      dotRef.current.style.background = dark ? "#EEEDE8" : "#111110";
+    const markDirty = () => {
+      dirty = true;
+    };
+
+    // Hover fills (e.g. outline buttons turning charcoal) animate in, so look
+    // again once they finish.
+    const onTransitionEnd = (event: TransitionEvent) => {
+      if (event.propertyName === "background-color") dirty = true;
+    };
+
+    // Clicks can swap what's under a still pointer (menu opens, step changes).
+    const onPointerUp = () => {
+      requestAnimationFrame(markDirty);
+    };
+
+    const onLeave = () => {
+      inside = false;
+      if (cursor) cursor.style.display = "none";
+    };
+
+    const onEnter = () => {
+      inside = true;
+      syncCursor();
     };
 
     const onScroll = () => {
+      dirty = true;
       const nav = document.querySelector<HTMLElement>("[data-nav]");
       if (nav) nav.style.setProperty("--c", window.scrollY > 40 ? "1" : "0");
       const viewport = window.innerHeight;
@@ -183,6 +255,7 @@ export function SiteRuntime() {
     };
 
     const mutations = new MutationObserver(() => {
+      dirty = true;
       if (observing) scan();
     });
     mutations.observe(document.body, { childList: true, subtree: true });
@@ -281,7 +354,11 @@ export function SiteRuntime() {
     };
 
     window.addEventListener("pointermove", onMove, { passive: true });
-    document.addEventListener("pointerover", onOver);
+    document.addEventListener("pointerover", markDirty);
+    document.addEventListener("pointerup", onPointerUp);
+    document.addEventListener("transitionend", onTransitionEnd);
+    root.addEventListener("mouseleave", onLeave);
+    root.addEventListener("mouseenter", onEnter);
     window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("click", onClick, true);
     onScroll();
@@ -294,7 +371,13 @@ export function SiteRuntime() {
       window.clearTimeout(safetyTimer);
       window.clearTimeout(navTimer);
       window.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerover", onOver);
+      document.removeEventListener("pointerover", markDirty);
+      document.removeEventListener("pointerup", onPointerUp);
+      document.removeEventListener("transitionend", onTransitionEnd);
+      root.removeEventListener("mouseleave", onLeave);
+      root.removeEventListener("mouseenter", onEnter);
+      finePointer.removeEventListener("change", syncCursor);
+      reducedMotion.removeEventListener("change", syncCursor);
       window.removeEventListener("scroll", onScroll);
       document.removeEventListener("click", onClick, true);
       root.classList.remove("cc");

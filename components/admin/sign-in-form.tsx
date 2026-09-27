@@ -6,30 +6,15 @@ import { login, type AuthFormState } from "@/app/admin/login/actions";
 
 const initial: AuthFormState = null;
 
-export function SignInForm({
-  hintEmail,
-  hintPassword,
-}: {
-  hintEmail: string;
-  hintPassword: string;
-}) {
+export function SignInForm() {
   const [state, action, pending] = useActionState(login, initial);
 
   return (
-    <form action={action} className="admin-form" aria-describedby="demo-credentials">
+    <form action={action} className="admin-form">
       <span className="font-mono text-[10px] tracking-[0.08em] text-on-dark-muted uppercase">
         /Admin · Secure sign-in
       </span>
       <h1 className="m-0 text-[clamp(28px,8vw,32px)] font-semibold tracking-[-0.04em]">Sign in</h1>
-      <div id="demo-credentials" className="admin-demo">
-        <p className="m-0 font-mono text-[10px] tracking-[0.08em] text-on-dark-muted uppercase">Demo access</p>
-        <p className="m-0">
-          Email <strong>{hintEmail}</strong>
-        </p>
-        <p className="m-0">
-          Password <strong>{hintPassword}</strong>
-        </p>
-      </div>
       {state?.error ? (
         <p role="alert" className="m-0 text-[13px] text-alert">
           {state.error}
@@ -44,8 +29,6 @@ export function SignInForm({
           autoCapitalize="none"
           spellCheck={false}
           required
-          placeholder={hintEmail}
-          aria-describedby="demo-credentials"
           className="admin-input"
         />
       </label>
@@ -56,8 +39,6 @@ export function SignInForm({
           type="password"
           autoComplete="current-password"
           required
-          placeholder={hintPassword}
-          aria-describedby="demo-credentials"
           className="admin-input"
         />
       </label>

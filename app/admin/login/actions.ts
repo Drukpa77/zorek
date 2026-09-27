@@ -3,7 +3,7 @@
 import { AuthError } from "next-auth";
 import { z } from "zod";
 import { signIn } from "@/auth";
-import { isLocked, recordFailure } from "@/lib/lockout";
+import { lockMinutes } from "@/lib/lockout";
 
 export type AuthFormState = { error?: string; message?: string } | null;
 
@@ -23,8 +23,11 @@ export async function login(_state: AuthFormState, formData: FormData): Promise<
   }
 
   const email = parsed.data.email.toLowerCase();
-  if (isLocked(email)) {
-    return { error: "Too many attempts. Try again later." };
+  const lockedFor = await lockMinutes(email);
+  if (lockedFor) {
+    return {
+      error: `Too many attempts. Try again in ${lockedFor} ${lockedFor === 1 ? "minute" : "minutes"}.`,
+    };
   }
 
   try {
@@ -35,7 +38,12 @@ export async function login(_state: AuthFormState, formData: FormData): Promise<
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      recordFailure(email);
+      const again = await lockMinutes(email);
+      if (again) {
+        return {
+          error: `Too many attempts. Try again in ${again} ${again === 1 ? "minute" : "minutes"}.`,
+        };
+      }
       return { error: "Email or password is incorrect." };
     }
     throw error;
@@ -57,8 +65,11 @@ export async function requestPasswordReset(
     return { error: parsed.error.issues[0]?.message ?? "Enter a valid email." };
   }
 
-  if (isLocked(parsed.data.email)) {
-    return { error: "Too many attempts. Try again later." };
+  const lockedFor = await lockMinutes(parsed.data.email);
+  if (lockedFor) {
+    return {
+      error: `Too many attempts. Try again in ${lockedFor} ${lockedFor === 1 ? "minute" : "minutes"}.`,
+    };
   }
 
   return {

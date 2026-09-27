@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { requestPasswordReset, type AuthFormState } from "@/app/admin/login/actions";
 
-export function ForgotPasswordForm({ hintEmail }: { hintEmail: string }) {
+export function ForgotPasswordForm() {
   const [state, action, pending] = useActionState(requestPasswordReset, null as AuthFormState);
 
   return (
@@ -36,7 +36,7 @@ export function ForgotPasswordForm({ hintEmail }: { hintEmail: string }) {
           required
           autoCapitalize="none"
           spellCheck={false}
-          placeholder={hintEmail}
+          placeholder="name@company.com"
           className="admin-input"
         />
       </label>
