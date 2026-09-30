@@ -28,6 +28,8 @@
     ]
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1142.0",
+    "@aws-sdk/s3-request-presigner": "^3.1142.0",
     "@node-rs/argon2": "^2.2.1",
     "@prisma/client": "^6.19.3",
     "next": "15.5.26",
@@ -35,6 +37,7 @@
     "nodemailer": "^8.0.11",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "sharp": "^0.35.5",
     "three": "0.160.0",
     "zod": "^4.6.5"
   },

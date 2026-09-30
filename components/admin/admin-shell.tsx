@@ -1,56 +1,63 @@
-import Link from "next/link";
-import { signOut } from "@/auth";
+import { signOutAction } from "@/app/admin/actions";
+import { AdminFrame, type FrameNavItem } from "@/components/admin/admin-frame";
+import { type AdminKey, type CountKey, crumbFor, navForRole } from "@/lib/admin-nav";
 import { companyName } from "@/lib/brand";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/require-role";
 
-export async function AdminShell({
-  current,
-  children,
-}: {
-  current: "overview" | "enquiries";
-  children: React.ReactNode;
-}) {
-  await requireRole("AUTHOR");
-  const fresh = await prisma.enquiry.count({ where: { status: "NEW", archivedAt: null } });
+const live = { deletedAt: null };
 
-  const item = (key: "overview" | "enquiries", href: string, label: string, count?: number) => (
-    <Link
-      href={href}
-      aria-current={current === key ? "page" : undefined}
-      className={`flex min-h-11 items-center justify-between gap-3 px-3 text-[14px] ${
-        current === key ? "bg-white text-ink" : "text-on-dark-body hover:text-on-dark"
-      }`}
-    >
-      <span>{label}</span>
-      {count ? <span className="font-mono text-[11px] text-acc-on-dark">{count}</span> : null}
-    </Link>
-  );
+async function loadCounts(): Promise<Record<CountKey, number>> {
+  const [caseStudies, insights, services, industries, media, redirects, enquiries] = await Promise.all([
+    prisma.caseStudy.count({ where: live }),
+    prisma.insight.count({ where: live }),
+    prisma.service.count(),
+    prisma.industry.count(),
+    prisma.media.count({ where: live }),
+    prisma.redirect.count(),
+    prisma.enquiry.count({ where: { status: "NEW", archivedAt: null } }),
+  ]);
+  return { caseStudies, insights, services, industries, media, redirects, enquiries };
+}
+
+const initialsFor = (name: string) =>
+  name
+    .replace(/[[\]]/g, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "?";
+
+export async function AdminShell({ current, children }: { current: AdminKey; children: React.ReactNode }) {
+  const user = await requireRole("AUTHOR");
+  const counts = await loadCounts();
+
+  const nav = navForRole(user.role).map((section) => ({
+    group: section.group,
+    items: section.items.map<FrameNavItem>((item) => ({
+      key: item.key,
+      label: item.label,
+      href: item.href,
+      ready: item.ready,
+      count: item.count ? counts[item.count] : null,
+      // Only new enquiries are an action item; the other counts are inventory.
+      alert: item.key === "enquiries" && counts.enquiries > 0,
+    })),
+  }));
+
+  const name = user.name ?? user.email ?? "Admin";
 
   return (
-    <div className="min-h-dvh bg-a-bg md:grid md:grid-cols-[220px_1fr]">
-      <aside className="flex flex-col gap-6 bg-dark px-3 py-5 text-on-dark md:min-h-dvh">
-        <div className="px-3">
-          <p className="font-mono text-[10px] tracking-[0.08em] text-on-dark-muted uppercase">Admin</p>
-          <p className="mt-1 text-[15px] font-semibold tracking-[-0.02em]">{companyName}</p>
-        </div>
-        <nav aria-label="Admin" className="flex flex-col gap-1">
-          {item("overview", "/admin", "Overview")}
-          {item("enquiries", "/admin/enquiries", "Enquiries", fresh)}
-        </nav>
-        <form
-          className="mt-auto px-3"
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/admin/login" });
-          }}
-        >
-          <button type="submit" className="min-h-11 text-[14px] text-on-dark-body">
-            Sign out
-          </button>
-        </form>
-      </aside>
-      <div className="px-[var(--pad-x)] py-8">{children}</div>
-    </div>
+    <AdminFrame
+      nav={nav}
+      current={current}
+      crumb={crumbFor(current)}
+      companyName={companyName}
+      user={{ name, role: user.role.replaceAll("_", " "), initials: initialsFor(name) }}
+      signOutAction={signOutAction}
+    >
+      {children}
+    </AdminFrame>
   );
 }

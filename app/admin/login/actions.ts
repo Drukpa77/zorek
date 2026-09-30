@@ -35,6 +35,12 @@ export async function login(_state: AuthFormState, formData: FormData): Promise<
   const email = parsed.data.email.toLowerCase();
   try {
     const admin = await ensureAdmin();
+    if (!admin.configured && "unsafe" in admin && (await prismaUserCount()) === 0) {
+      return {
+        error:
+          "The admin account wasn't created because SEED_ADMIN_EMAIL or SEED_ADMIN_PASSWORD still uses a demo value. Set real values in the host settings, then try again.",
+      };
+    }
     if (!admin.configured && (await prismaUserCount()) === 0) {
       return {
         error:
