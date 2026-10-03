@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { companyName } from "@/lib/brand";
+import { siteOrigin } from "@/lib/site-url";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,6 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteOrigin()),
   title: {
     default: `${companyName} — Digital Product & Software Engineering`,
     template: `%s — ${companyName}`,

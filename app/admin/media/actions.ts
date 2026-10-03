@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { type MediaView, toMediaView } from "@/lib/media";
+import { type MediaView, toMediaView } from "@/lib/media-view";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/require-role";
 

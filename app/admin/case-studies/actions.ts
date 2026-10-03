@@ -7,6 +7,7 @@ import { z } from "zod";
 import { canAccess } from "@/lib/admin-nav";
 import { mediaIdsIn } from "@/lib/blocks";
 import { type CaseStudyData, type CaseStudyInput, caseStudyInput, editorInclude, mediaById, slugify, toEditorData } from "@/lib/case-studies";
+import { saveVersion, versionData, type VersionView, versionsFor } from "@/lib/content-versions";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/require-role";
 
@@ -40,14 +41,7 @@ async function log(tx: Prisma.TransactionClient, userId: string, entityId: strin
 
 async function snapshot(tx: Prisma.TransactionClient, userId: string, caseStudyId: string, label: string) {
   const row = await tx.caseStudy.findUniqueOrThrow({ where: { id: caseStudyId }, include: editorInclude });
-  await tx.contentVersion.create({
-    data: {
-      entityType: "CaseStudy",
-      entityId: caseStudyId,
-      createdById: userId,
-      snapshot: { label, status: row.status, data: toEditorData(row) } as unknown as Prisma.InputJsonValue,
-    },
-  });
+  await saveVersion(tx, { entityType: "CaseStudy", entityId: caseStudyId, userId, label, status: row.status, data: toEditorData(row) });
 }
 
 async function writeContent(tx: Prisma.TransactionClient, caseStudyId: string, seoId: string | null, data: CaseStudyData) {
@@ -187,31 +181,9 @@ export async function saveCaseStudy(
 
 // ---------- Versions ----------
 
-export type VersionView = { id: string; label: string; when: string; by: string };
-
-const versionDate = new Intl.DateTimeFormat("en-AU", {
-  day: "numeric",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-  timeZone: "Australia/Sydney",
-});
-
 export async function listVersions(caseStudyId: string): Promise<VersionView[]> {
   await requireRole("AUTHOR");
-  const rows = await prisma.contentVersion.findMany({
-    where: { entityType: "CaseStudy", entityId: caseStudyId },
-    orderBy: { createdAt: "desc" },
-    take: 15,
-    include: { createdBy: { select: { name: true } } },
-  });
-  return rows.map((v) => ({
-    id: v.id,
-    label: String((v.snapshot as { label?: string }).label ?? "Saved"),
-    when: versionDate.format(v.createdAt),
-    by: v.createdBy.name,
-  }));
+  return versionsFor("CaseStudy", caseStudyId);
 }
 
 /** Fresh editor state, e.g. after restoring a version. */
@@ -226,11 +198,10 @@ export async function loadEditorState(caseStudyId: string) {
 
 export async function restoreVersion(caseStudyId: string, versionId: string): Promise<SaveResult> {
   const user = await requireRole("EDITOR");
-  const version = await prisma.contentVersion.findFirst({ where: { id: versionId, entityType: "CaseStudy", entityId: caseStudyId } });
+  const stored = await versionData("CaseStudy", caseStudyId, versionId);
   const current = await prisma.caseStudy.findFirst({ where: { id: caseStudyId, deletedAt: null } });
-  if (!version || !current) return { ok: false, error: "That version couldn't be found." };
+  if (stored === undefined || !current) return { ok: false, error: "That version couldn't be found." };
 
-  const stored = (version.snapshot as { data?: unknown }).data;
   const parsed = caseStudyInput.safeParse(stored);
   if (!parsed.success) return { ok: false, error: "That version can't be restored because its content is no longer valid." };
   // The slug stays as it is now: restoring must not silently move a live page.

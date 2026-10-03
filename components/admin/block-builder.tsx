@@ -3,10 +3,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { MediaField, MediaPickerDialog } from "@/components/admin/media-picker";
 import { ChipGroup, Switch, TagInput, TextField } from "@/components/admin/fields";
+import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import { ConfirmDialog } from "@/components/admin/ui";
 import { type BlockType, blockDefs, blockTypes, defaultBlockData, type Field } from "@/lib/blocks";
 import type { MediaView } from "@/lib/media";
-import { docToText, textToDoc } from "@/lib/rich-text";
 
 export type EditorBlock = { key: string; type: BlockType; hidden: boolean; data: Record<string, unknown> };
 
@@ -233,25 +233,6 @@ export function BlockBuilder({
 
 // ---------- Fields ----------
 
-function RichField({ label, value, onChange }: { label: string; value: unknown; onChange: (value: unknown) => void }) {
-  // Keep the typed text locally so formatting round-trips never fight the cursor.
-  const [text, setText] = useState(() => docToText(value));
-  return (
-    <TextField
-      label={label}
-      value={text}
-      multiline
-      rows={6}
-      max={20000}
-      hint="Blank line starts a new paragraph · “- ” makes a bullet · “## ” makes a subheading"
-      onChange={(next) => {
-        setText(next);
-        onChange(textToDoc(next));
-      }}
-    />
-  );
-}
-
 function MediaListField({ label, value, onChange, ctx }: { label: string; value: string[]; onChange: (v: string[]) => void; ctx: Ctx }) {
   const [picking, setPicking] = useState(false);
   const labelId = useId();
@@ -384,7 +365,7 @@ function FieldInput({ field, value, onChange, ctx }: { field: Field; value: unkn
     case "textarea":
       return <TextField label={field.label} value={String(value ?? "")} onChange={onChange} max={field.max} hint={field.hint} multiline />;
     case "rich":
-      return <RichField label={field.label} value={value} onChange={onChange} />;
+      return <RichTextEditor label={field.label} value={value} onChange={onChange} variant="compact" minHeight={120} />;
     case "media": {
       const media = typeof value === "string" ? (ctx.media[value] ?? null) : null;
       return (

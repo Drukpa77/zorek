@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { docToText, emptyDoc, richDocSchema } from "@/lib/rich-text";
+import { docToText, emptyDoc, richDocSchema, sanitizeDoc } from "@/lib/rich-text";
 
 // Case-study page builder: one definition per block type drives validation
 // (server + render), the editor form, defaults and the list summary.
@@ -7,7 +7,8 @@ import { docToText, emptyDoc, richDocSchema } from "@/lib/rich-text";
 
 const str = (max = 300) => z.string().trim().max(max).default("");
 const id = z.string().max(40).nullable().default(null);
-const doc = richDocSchema.default(emptyDoc);
+// Rich fields are cleaned against the allowlist on every parse.
+const doc = richDocSchema.default(emptyDoc).transform(sanitizeDoc);
 
 export const blockSchemas = {
   heading: z.object({ eyebrow: str(80), text: str(200) }),

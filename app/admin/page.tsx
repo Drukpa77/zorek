@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { type AdminKey, adminNav } from "@/lib/admin-nav";
-import { toMediaView } from "@/lib/media";
+import { toMediaView } from "@/lib/media-view";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/require-role";
 

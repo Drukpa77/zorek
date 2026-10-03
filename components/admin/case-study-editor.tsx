@@ -2,17 +2,17 @@
 
 import type { Status } from "@prisma/client";
 import Link from "next/link";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { listVersions, loadEditorState, restoreVersion, saveCaseStudy, type SaveIntent, type VersionView } from "@/app/admin/case-studies/actions";
+import { useCallback, useId, useRef, useState } from "react";
+import { listVersions, loadEditorState, restoreVersion, saveCaseStudy, type SaveIntent } from "@/app/admin/case-studies/actions";
+import type { VersionView } from "@/lib/content-versions";
 import { setMediaFocalPoint } from "@/app/admin/media/actions";
 import { BlockBuilder, type EditorBlock } from "@/components/admin/block-builder";
 import { ChipGroup, Switch, TextField } from "@/components/admin/fields";
 import { MediaField } from "@/components/admin/media-picker";
 import { ConfirmDialog, Toast, useToast } from "@/components/admin/ui";
+import { useContentSave } from "@/components/admin/use-content-save";
 import { type CaseStudyData, PROJECT_TYPES, SLUG_PATTERN, slugify, statusColors, statusLabel } from "@/lib/case-study-schema";
 import type { MediaView } from "@/lib/media";
-
-const AUTOSAVE_MS = 1400;
 
 type Props = {
   id: string;
@@ -38,109 +38,36 @@ const toDraft = (data: CaseStudyData): Draft => ({
 
 const toInput = (draft: Draft) => ({ ...draft, blocks: draft.blocks.map(({ type, hidden, data }) => ({ type, hidden, data })) });
 
-type SaveState = "saved" | "dirty" | "saving" | "error";
-
 export function CaseStudyEditor(props: Props) {
   const { id, canPublish } = props;
   const [draft, setDraft] = useState<Draft>(() => toDraft(props.initial));
-  const [status, setStatus] = useState<Status>(props.initialStatus);
-  const [saveState, setSaveState] = useState<SaveState>("saved");
-  const [savedAt, setSavedAt] = useState<string>("");
-  const [error, setError] = useState("");
   const [media, setMedia] = useState<Record<string, MediaView>>(props.initialMedia);
   const [versions, setVersions] = useState(props.initialVersions);
   const [restoring, setRestoring] = useState<VersionView | null>(null);
   // A fresh, never-published draft's slug follows the name until someone
   // edits the slug by hand.
   const slugFollowsName = useRef(props.initialStatus === "DRAFT" && props.initial.slug.startsWith("untitled-case-study"));
-  const baseUpdatedAt = useRef(props.initialUpdatedAt);
-  const saving = useRef(false);
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
   const { toast, notify } = useToast();
 
-  const live = status === "PUBLISHED" || status === "SCHEDULED";
-  const dirty = saveState === "dirty" || saveState === "error";
+  const { status, live, dirty, saveState, statusText, error, markDirty, save, reset } = useContentSave({
+    draft,
+    initialStatus: props.initialStatus,
+    initialUpdatedAt: props.initialUpdatedAt,
+    canPublish,
+    send: (d, intent, base) => saveCaseStudy(id, toInput(d), intent as SaveIntent, base),
+    onSaved: async (_result, intent) => {
+      if (intent === "autosave") return;
+      setVersions(await listVersions(id));
+      notify({ draft: "Draft saved", publish: "Published", update: "Changes are live", unpublish: "Unpublished — now a draft" }[intent]);
+    },
+  });
 
   const change = (patch: Partial<Draft>) => {
     setDraft((d) => ({ ...d, ...patch }));
-    setSaveState("dirty");
+    markDirty();
   };
 
   const addMedia = useCallback((m: MediaView) => setMedia((all) => ({ ...all, [m.id]: m })), []);
-
-  const save = useCallback(
-    async (intent: SaveIntent) => {
-      if (saving.current) return false;
-      saving.current = true;
-      setSaveState("saving");
-      const snapshot = draftRef.current;
-      const result = await saveCaseStudy(id, toInput(snapshot), intent, baseUpdatedAt.current);
-      saving.current = false;
-      if (!result.ok) {
-        setSaveState("error");
-        setError(result.error);
-        if (intent !== "autosave") notify(result.error);
-        return false;
-      }
-      baseUpdatedAt.current = result.updatedAt;
-      setStatus(result.status);
-      setError("");
-      setSavedAt(new Date().toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }));
-      // Edits made while the request was in flight stay dirty.
-      setSaveState(draftRef.current === snapshot ? "saved" : "dirty");
-      if (intent !== "autosave") {
-        setVersions(await listVersions(id));
-        notify({ draft: "Draft saved", publish: "Published", update: "Changes are live", unpublish: "Unpublished — now a draft" }[intent]);
-      }
-      return true;
-    },
-    [id, notify],
-  );
-
-  // Autosave drafts ~1.4s after the last edit. Live pages wait for Update.
-  useEffect(() => {
-    if (saveState !== "dirty" || live) return;
-    const timer = window.setTimeout(() => void save("autosave"), AUTOSAVE_MS);
-    return () => window.clearTimeout(timer);
-  }, [draft, saveState, live, save]);
-
-  // Warn before leaving with unsaved changes.
-  useEffect(() => {
-    if (!dirty && saveState !== "saving") return;
-    const onUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-    };
-    window.addEventListener("beforeunload", onUnload);
-    return () => window.removeEventListener("beforeunload", onUnload);
-  }, [dirty, saveState]);
-
-  // ⌘S / Ctrl+S saves (draft) or updates (live).
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        if (live) {
-          if (canPublish) void save("update");
-        } else void save("draft");
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [live, canPublish, save]);
-
-  const statusText =
-    saveState === "saving"
-      ? "SAVING…"
-      : saveState === "error"
-        ? "NOT SAVED"
-        : saveState === "dirty"
-          ? live
-            ? "UNPUBLISHED CHANGES"
-            : "UNSAVED CHANGES"
-          : savedAt
-            ? `SAVED ${savedAt.toUpperCase()}`
-            : "ALL CHANGES SAVED";
 
   const hero = draft.heroImageId ? (media[draft.heroImageId] ?? null) : null;
   const slugError = SLUG_PATTERN.test(draft.slug) ? undefined : "Use lowercase letters, numbers and single hyphens.";
@@ -365,9 +292,7 @@ export function CaseStudyEditor(props: Props) {
             if (fresh) {
               setDraft(toDraft(fresh.data));
               setMedia((m) => ({ ...m, ...fresh.media }));
-              setStatus(fresh.status);
-              baseUpdatedAt.current = fresh.updatedAt;
-              setSaveState("saved");
+              reset({ status: fresh.status, updatedAt: fresh.updatedAt });
             }
             setVersions(await listVersions(id));
             notify("Version restored");

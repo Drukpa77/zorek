@@ -39,7 +39,7 @@ export const adminNav: { group: string; items: AdminNavItem[] }[] = [
     group: "Content",
     items: [
       { key: "case-studies", label: "Case Studies", href: "/admin/case-studies", crumb: "Content / Case studies", minRole: "AUTHOR", ready: true, count: "caseStudies" },
-      { key: "insights", label: "Insights", href: "/admin/insights", crumb: "Content / Insights", minRole: "AUTHOR", ready: false, count: "insights" },
+      { key: "insights", label: "Insights", href: "/admin/insights", crumb: "Content / Insights", minRole: "AUTHOR", ready: true, count: "insights" },
       { key: "services", label: "Services", href: "/admin/services", crumb: "Content / Services", minRole: "EDITOR", ready: false, count: "services" },
       { key: "industries", label: "Industries", href: "/admin/industries", crumb: "Content / Industries", minRole: "EDITOR", ready: false, count: "industries" },
       { key: "pages", label: "Pages", href: "/admin/pages", crumb: "Pages / Homepage", minRole: "EDITOR", ready: false },

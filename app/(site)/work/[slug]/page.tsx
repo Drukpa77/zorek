@@ -7,6 +7,7 @@ import { CaseStudyBlocks, countNumbered } from "@/components/work/case-study-blo
 import { MissingMedia, Picture } from "@/components/work/picture";
 import { getCaseStudyPage } from "@/lib/case-studies";
 import { prisma } from "@/lib/prisma";
+import { isLive } from "@/lib/publishing";
 
 export const revalidate = 300;
 
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: data.seo.title || data.name,
     description,
-    robots: data.seo.noindex || row.status !== "PUBLISHED" ? { index: false, follow: false } : undefined,
+    robots: data.seo.noindex || !isLive(row) ? { index: false, follow: false } : undefined,
     alternates: { canonical: `/work/${row.slug}` },
     openGraph: {
       title: data.seo.title || data.name,
@@ -71,7 +72,7 @@ export default async function CaseStudyPage({ params }: Props) {
       {preview ? (
         <div className="preview-bar" role="status">
           <span>
-            Preview · {row.status === "PUBLISHED" ? "Live page with your latest saved changes" : "Draft, not visible to the public"}
+            Preview · {isLive(row) ? "Live page with your latest saved changes" : "Not live yet, only visible to signed-in staff"}
           </span>
           <a href={`/api/admin/preview?exit=1&path=/work/${row.slug}`}>Exit preview</a>
         </div>

@@ -1,7 +1,7 @@
 import { AdminShell } from "@/components/admin/admin-shell";
 import { MediaLibrary } from "@/components/admin/media-library";
 import { canAccess } from "@/lib/admin-nav";
-import { ACCEPT, toMediaView } from "@/lib/media";
+import { ACCEPT, toMediaView } from "@/lib/media-view";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/require-role";
 import { storageConfigured } from "@/lib/storage";

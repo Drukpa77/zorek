@@ -1,4 +1,3 @@
-import type { Status } from "@prisma/client";
 import { z } from "zod";
 import { blockSchemas, parseBlockData, type BlockType } from "@/lib/blocks";
 
@@ -60,23 +59,4 @@ export const caseStudyInput = z.object({
 export type CaseStudyInput = z.input<typeof caseStudyInput>;
 export type CaseStudyData = z.output<typeof caseStudyInput>;
 
-export const statusLabel: Record<Status, string> = {
-  DRAFT: "Draft",
-  REVIEW: "In review",
-  APPROVED: "Approved",
-  SCHEDULED: "Scheduled",
-  PUBLISHED: "Published",
-  ARCHIVED: "Archived",
-  TRASHED: "Trashed",
-};
-
-export const statusColors: Record<Status, { bg: string; fg: string }> = {
-  DRAFT: { bg: "var(--status-draft-bg)", fg: "var(--status-draft-fg)" },
-  REVIEW: { bg: "var(--status-draft-bg)", fg: "var(--status-draft-fg)" },
-  APPROVED: { bg: "var(--status-draft-bg)", fg: "var(--status-draft-fg)" },
-  SCHEDULED: { bg: "var(--status-scheduled-bg)", fg: "var(--status-scheduled-fg)" },
-  PUBLISHED: { bg: "var(--status-published-bg)", fg: "var(--status-published-fg)" },
-  ARCHIVED: { bg: "var(--status-archived-bg)", fg: "var(--status-archived-fg)" },
-  TRASHED: { bg: "var(--status-archived-bg)", fg: "var(--status-archived-fg)" },
-};
-
+export { statusColors, statusLabel } from "@/lib/content-status";

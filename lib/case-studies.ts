@@ -1,8 +1,9 @@
 import type { Prisma } from "@prisma/client";
 import { mediaIdsIn, parseBlockData, type BlockType } from "@/lib/blocks";
 import { PROJECT_TYPES, type CaseStudyData } from "@/lib/case-study-schema";
-import { toMediaView, type MediaView } from "@/lib/media";
+import { toMediaView, type MediaView } from "@/lib/media-view";
 import { prisma } from "@/lib/prisma";
+import { liveWhere } from "@/lib/publishing";
 
 export * from "@/lib/case-study-schema";
 
@@ -45,11 +46,10 @@ export async function mediaById(ids: (string | null | undefined)[]) {
   return new Map(rows.map((row) => [row.id, toMediaView(row)]));
 }
 
-export const publishedWhere = { status: "PUBLISHED" as const, deletedAt: null };
 
 export async function listPublishedCaseStudies() {
   const rows = await prisma.caseStudy.findMany({
-    where: publishedWhere,
+    where: liveWhere(),
     orderBy: [{ displayOrder: "asc" }, { publishedAt: "desc" }],
     select: {
       id: true,
@@ -69,7 +69,7 @@ export async function listPublishedCaseStudies() {
 
 export async function getCaseStudyPage(slug: string, preview: boolean) {
   const row = await prisma.caseStudy.findFirst({
-    where: preview ? { slug, deletedAt: null } : { slug, ...publishedWhere },
+    where: preview ? { slug, deletedAt: null } : { slug, ...liveWhere() },
     include: { ...editorInclude, industry: { select: { name: true } } },
   });
   if (!row) return null;
@@ -83,7 +83,7 @@ export async function getCaseStudyPage(slug: string, preview: boolean) {
       select: { id: true, name: true, slug: true, status: true },
     }),
     prisma.caseStudy.findMany({
-      where: publishedWhere,
+      where: liveWhere(),
       orderBy: [{ displayOrder: "asc" }, { publishedAt: "desc" }],
       select: { slug: true, name: true, clientName: true, services: true, year: true },
     }),
